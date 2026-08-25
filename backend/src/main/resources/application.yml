@@ -1,0 +1,10 @@
+server:
+  port: ${PORT:8080}   # Render/Railway inject PORT env var - falls back to 8080 locally
+
+ai:
+  service:
+    base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}   # teammate's FastAPI service, once deployed
+
+spring:
+  application:
+    name: agri-backend
