@@ -27,7 +27,7 @@ public class AiServiceClient {
 
     private final WebClient webClient;
 
-    public AiServiceClient(@Value("${ai.service.base-url:http://localhost:8000}") String baseUrl) {
+    public AiServiceClient(@Value("${ai.service.base-url:https://agri-network-ai.onrender.com}") String baseUrl) {
         this.webClient = WebClient.builder().baseUrl(baseUrl).build();
     }
 
