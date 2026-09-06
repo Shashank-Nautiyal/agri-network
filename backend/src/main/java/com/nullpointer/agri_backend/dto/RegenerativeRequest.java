@@ -6,7 +6,7 @@ import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 @Data
-public class AdvisoryRequest {
+public class RegenerativeRequest {
     @NotBlank
     private String farmerId;
 
@@ -14,5 +14,9 @@ public class AdvisoryRequest {
     @Valid
     private Location location;
 
-    private String cropType; // optional
+    @Valid
+    private SoilData soilData;
+
+    @NotBlank
+    private String cropType;
 }

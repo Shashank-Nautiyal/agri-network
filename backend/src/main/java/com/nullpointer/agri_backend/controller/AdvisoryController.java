@@ -27,7 +27,7 @@ public class AdvisoryController {
     public AdvisoryResponse advisory(@Valid @RequestBody AdvisoryRequest request) {
         AdvisoryResponse response = aiServiceClient.advisory(request);
 
-        historyService.recordAdvisory(request.getFarmerId(), request.getDistrictId(), response.getRecommendation());
+        historyService.recordAdvisory(request.getFarmerId(), request.getLocation().getDistrict(), response.getRecommendation());
 
         return response;
     }

@@ -36,8 +36,7 @@ public class AdvisoryHistoryService {
     /**
      * Anonymized cross-district trend data - e.g. "3 blight reports in
      * District X this week". This is what powers the regional-alerts /
-     * cross-state interoperability endpoint, demonstrating the "digital
-     * public good, scales across states" requirement.
+     * cross-state interoperability endpoint.
      */
     public Map<String, Long> diseaseTrendByDistrict(String districtId) {
         Map<String, Long> trend = new ConcurrentHashMap<>();

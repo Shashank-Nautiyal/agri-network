@@ -10,6 +10,9 @@ import lombok.NoArgsConstructor;
 public class AdvisoryResponse {
     private String recommendation;
     private String ndviSummary;
+    private String soilSummary;
     private String weatherRisk;
+    private String diseaseRiskLevel;
+    private double confidence;
     private String language;
 }

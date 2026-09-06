@@ -23,7 +23,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 @Service
 public class AiServiceClient {
 
-    private static final boolean USE_MOCK = true;
+    private static final boolean USE_MOCK = false;
 
     private final WebClient webClient;
 
@@ -53,7 +53,10 @@ public class AiServiceClient {
             return new AdvisoryResponse(
                     "Mock recommendation: soil moisture is moderate; consider drought-tolerant millet this season.",
                     "NDVI: 0.62 (healthy vegetation, mock)",
+                    "Nitrogen adequate, moisture low (mock)",
                     "Low risk of frost in next 7 days (mock)",
+                    "moderate",
+                    0.75,
                     "en"
             );
         }
@@ -62,6 +65,22 @@ public class AiServiceClient {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(AdvisoryResponse.class)
+                .block();
+    }
+
+    public RegenerativeResponse regenerativeAdvice(RegenerativeRequest request) {
+        if (USE_MOCK) {
+            return new RegenerativeResponse(
+                    java.util.List.of("cover cropping", "crop rotation"),
+                    "Mock reasoning: low organic carbon and moderate nitrogen depletion detected.",
+                    "Mock benefit: improves soil organic matter over 2 growing seasons."
+            );
+        }
+        return webClient.post()
+                .uri("/regenerative-advice")
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(RegenerativeResponse.class)
                 .block();
     }
 
