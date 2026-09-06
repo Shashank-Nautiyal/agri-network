@@ -3,7 +3,7 @@ server:
 
 ai:
   service:
-    base-url: ${AI_SERVICE_BASE_URL:http://localhost:8000}   # teammate's FastAPI service, once deployed
+    base-url: ${AI_SERVICE_BASE_URL:https://agri-network-ai.onrender.com}   # teammate's FastAPI service, once deployed
 
 spring:
   application:
