@@ -234,7 +234,8 @@ def get_weather(latitude: float, longitude: float) -> dict | None:
             "forecast_min_temp": min(min_temps) if min_temps else None,
             "total_rainfall_7day_mm": round(total_rain, 1),
         }
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG get_weather error: {type(e).__name__}:{e}")
         return None
 
 def get_soil_data(latitude: float, longitude: float) -> dict | None:
