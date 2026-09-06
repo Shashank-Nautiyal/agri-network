@@ -207,32 +207,35 @@ def get_ndvi(latitude: float, longitude: float) -> float | None:
 def get_weather(latitude: float, longitude: float) -> dict | None:
 
     try:
-        url = "https://api.open-meteo.com/v1/forecast"
-        params = {
-            "latitude": latitude,
-            "longitude": longitude,
-            "daily": "temperature_2m_max,temperature_2m_min,precipitation_sum",
-            "current": "temperature_2m,relative_humidity_2m",
-            "forecast_days": 7,
-            "timezone": "auto",
-        }
-        resp = requests.get(url, params=params, timeout=8)
-        resp.raise_for_status()
-        data = resp.json()
+        api_key = os.getenv("OWM_API_KEY")
+        # Current weather
+        current_resp = requests.get(
+            "https://api.openweathermap.org/data/2.5/weather",
+            params={"lat": latitude, "lon": longitude, "appid": api_key, "units": "metric"},
+            timeout=8
+        )
+        current_resp.raise_for_status()
+        current_data = current_resp.json()
 
-        current = data.get("current", {})
-        daily = data.get("daily", {})
+        # 5-day/3-hour forecast (classic free endpoint, no card required)
+        forecast_resp = requests.get(
+            "https://api.openweathermap.org/data/2.5/forecast",
+            params={"lat": latitude, "lon": longitude, "appid": api_key, "units": "metric"},
+            timeout=8
+        )
+        forecast_resp.raise_for_status()
+        forecast_data = forecast_resp.json()
 
-        total_rain = sum(daily.get("precipitation_sum", []) or [0])
-        max_temps = daily.get("temperature_2m_max", [])
-        min_temps = daily.get("temperature_2m_min", [])
+        forecast_list = forecast_data.get("list", [])
+        temps = [entry["main"]["temp"] for entry in forecast_list if "main" in entry]
+        total_rain = sum(entry.get("rain", {}).get("3h", 0) for entry in forecast_list)
 
         return {
-            "current_temperature": current.get("temperature_2m"),
-            "current_humidity": current.get("relative_humidity_2m"),
-            "forecast_max_temp": max(max_temps) if max_temps else None,
-            "forecast_min_temp": min(min_temps) if min_temps else None,
-            "total_rainfall_7day_mm": round(total_rain, 1),
+            "current_temperature": current_data.get("main", {}).get("temp"),
+            "current_humidity": current_data.get("main", {}).get("humidity"),
+            "forecast_max_temp": max(temps) if temps else None,
+            "forecast_min_temp": min(temps) if temps else None,
+            "total_rainfall_7day_mm": round(total_rain, 1),  # note: classic forecast only covers 5 days, not 7
         }
     except Exception as e:
         print(f"DEBUG get_weather error: {type(e).__name__}:{e}")
