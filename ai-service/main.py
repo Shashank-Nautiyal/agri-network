@@ -299,7 +299,8 @@ def get_soil_data(latitude: float, longitude: float) -> dict | None:
             "organic_carbon": organic_carbon if organic_carbon is not None else 0.0,
             "moisture": moisture if moisture is not None else 0.0,
         }
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG get_soil_data error: {type(e).__name__}: {e}")
         return None
 
 
@@ -368,7 +369,16 @@ def advisory(req: AdvisoryRequest):
     else:
         weather_block = "\n    Weather data unavailable — give general seasonal guidance."
 
-
+    soil = get_soil_data(req.location.latitude, req.location.longitude)
+    if soil is not None:
+        soil_block = f'''
+        Estimated soil pH: {soil['ph']}
+        Estimated nitrogen: {soil['nitrogen']}
+        Estimated organic carbon: {soil['organic_carbon']}
+        Estimated moisture: {soil['moisture']}%
+        (Note: this is a regional estimate, not a lab test.)'''
+    else:
+        soil_block = "\n    Soil data unavailable — give general soil-health guidance for the region."
     prompt =f'''You are an agricultural advisor. Based on the following data
     for a farm, generate a practical recommendation.
 
@@ -382,7 +392,7 @@ def advisory(req: AdvisoryRequest):
     {{
     "recommendation": "<practical advice for the farmer>",
     "ndvi_summary": "<one sentence interpreting the NDVI value>",
-    "soil_summary": "<brief note, soil data not part of this endpoint>",
+    "soil_summary": "<one sentence interpreting the soil data above>",
     "weather_risk": "<summary of the actual weather data above and any risk it implies>",
     "disease_risk_level": "<low, moderate, or high>",
     "confidence": <float 0-1>
