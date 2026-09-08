@@ -12,4 +12,5 @@ public class DiagnoseResponse {
     private double confidence;
     private String treatmentAdvice;
     private String language;
+    private boolean isValidImage = true;
 }

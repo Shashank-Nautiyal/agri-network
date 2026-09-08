@@ -97,6 +97,7 @@ class DiagnoseResponse(BaseModel):
     confidence: float
     treatment_advice: str = Field(..., alias="treatmentAdvice")
     language: str = "en"
+    is_valid_image: bool = Field(True, alias="isValidImage")
 
 # advisory 
 
@@ -319,12 +320,14 @@ def diagnose(req: DiagnoseRequest):
     try:
         image_bytes = base64.b64decode(req.image_base64)
         image = PIL.Image.open(io.BytesIO(image_bytes))
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG diagnose image-decode error: {type(e).__name__}: {e}")
         return DiagnoseResponse(
             disease="Unable to process image",
             confidence=0.0,
             treatment_advice="Please upload a clear photo of the affected leaf.",
             language="en",
+            is_valid_image=False,
         )
     
     prompt="""You are an agricultural expert. Look at this crop leaf image
@@ -333,16 +336,19 @@ def diagnose(req: DiagnoseRequest):
     {
       "disease": "<disease name, or 'Healthy' if no disease detected>",
       "confidence": <float between 0 and 1>,
-      "treatment_advice": "<short, practical treatment advice, prefer organic/regenerative options>"
+      "treatment_advice": "<short, practical treatment advice, prefer organic/regenerative options>",
+      "is_valid_image": <true if this is a genuine, identifiable crop/leaf photo suitable for diagnosis, false if the image is blurry, not a plant, or otherwise unusable>
     }"""
 
     try:
         response = client.models.generate_content(model="gemini-3.6-flash", contents=[prompt, image], config=FAST_CONFIG)
         result = extract_json(response.text)
-    except Exception:
+    except Exception as e:
+        print(f"DEBUG diagnose generation error: {type(e).__name__}: {e}")
         result = {"disease": "Unable to determine",
                 "confidence": 0.0,
-                "treatment_advice": "Please try again with a clearer image, or consult a local agricultural extension officer."
+                "treatment_advice": "Please try again with a clearer image, or consult a local agricultural extension officer.",
+                "is_valid_image": False,
             }
         
     return DiagnoseResponse(
@@ -350,6 +356,7 @@ def diagnose(req: DiagnoseRequest):
         confidence=result["confidence"],
         treatment_advice=result["treatment_advice"],
         language="en",
+        is_valid_image=result.get("is_valid_image", True),
     )
 
 

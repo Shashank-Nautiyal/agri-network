@@ -29,7 +29,9 @@ public class DiagnosisController {
 
         // Log to history for farmer's record + anonymized district trend data
         // (Phase 2: wire this up to Firestore in AdvisoryHistoryService)
-        historyService.recordDiagnosis(request.getFarmerId(), request.getDistrictId(), response.getDisease());
+        if (response.isValidImage()) {
+            historyService.recordDiagnosis(request.getFarmerId(), request.getDistrictId(), response.getDisease());
+        }
 
         return response;
     }
