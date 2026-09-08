@@ -37,7 +37,8 @@ public class AiServiceClient {
                     "Early Blight (mock)",
                     0.87,
                     "Mock advice: remove affected leaves, apply neem-based spray, avoid overhead watering.",
-                    "en"
+                    "en",
+                    false
             );
         }
         return webClient.post()
