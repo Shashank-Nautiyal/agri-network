@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>KhetSaathi — AI Advisory for Farmers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- ============ Registration overlay ============ -->
+<div class="overlay" id="registerOverlay">
+  <div class="card">
+    <h1>
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M12 9c-2-1-3-3-2-5 2 1 3 3 2 5z"/><path d="M12 9c2-1 3-3 2-5-2 1-3 3-2 5z"/><path d="M12 13c-2-1-3-3-2-5 2 1 3 3 2 5z"/><path d="M12 13c2-1 3-3 2-5-2 1-3 3-2 5z"/></svg>
+      KhetSaathi
+    </h1>
+    <p class="sub">Your AI farming companion. Let's set up your profile first.</p>
+    <div class="field">
+      <label for="regName">Your name</label>
+      <input type="text" id="regName" placeholder="e.g. Ramesh Kumar" />
+    </div>
+    <div class="field">
+      <label for="regPhone">Phone number</label>
+      <input type="text" id="regPhone" placeholder="e.g. 9876543210" />
+    </div>
+    <div class="field">
+      <label for="regLang">Preferred language</label>
+      <select id="regLang">
+        <option value="en">English</option>
+        <option value="hi">हिंदी (Hindi)</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="regCountry">Country</label>
+      <select id="regCountry">
+        <option>India</option>
+        <option>Brazil</option>
+        <option>Russia</option>
+        <option>China</option>
+        <option>South Africa</option>
+      </select>
+    </div>
+    <div class="row2">
+      <div class="field">
+        <label for="regState">State</label>
+        <input type="text" id="regState" placeholder="e.g. Uttarakhand" />
+      </div>
+      <div class="field">
+        <label for="regDistrict">District</label>
+        <input type="text" id="regDistrict" placeholder="e.g. Dehradun" />
+      </div>
+    </div>
+    <button class="primary" onclick="registerFarmer()">Get started</button>
+    <div id="regError" class="error-box hidden"></div>
+  </div>
+</div>
+
+<!-- ============ Main app ============ -->
+<div id="app" class="hidden">
+  <header class="appbar">
+    <div class="brand">
+      <svg class="icon" viewBox="0 0 24 24"><path d="M12 21V9"/><path d="M12 9c-2-1-3-3-2-5 2 1 3 3 2 5z"/><path d="M12 9c2-1 3-3 2-5-2 1-3 3-2 5z"/><path d="M12 13c-2-1-3-3-2-5 2 1 3 3 2 5z"/><path d="M12 13c2-1 3-3 2-5-2 1-3 3-2 5z"/></svg>
+      KhetSaathi
+    </div>
+    <button class="farmer-chip" id="farmerChip" onclick="showOverlay()">
+      <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4.4 3.6-8 8-8s8 3.6 8 8"/></svg>
+      Farmer
+    </button>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="diagnose">
+      <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+      Diagnose
+    </button>
+    <button class="tab-btn" data-tab="advisory">
+      <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><circle cx="12" cy="12" r="9"/><path d="M15 9l-2 5-5 2 2-5 5-2z"/></svg>
+      Advisory
+    </button>
+    <button class="tab-btn" data-tab="regenerative">
+      <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M3 18c3-3 6-3 9-3s6 0 9 3"/><path d="M12 15V8"/><path d="M12 8c-1.5-1.5-1.5-3.5 0-5 1.5 1.5 1.5 3.5 0 5z"/></svg>
+      Soil &amp; Practices
+    </button>
+    <button class="tab-btn" data-tab="ask">
+      <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M21 11.5a8.4 8.4 0 01-9 8.4 8.5 8.5 0 01-4-1L3 20l1.1-4.9A8.4 8.4 0 1121 11.5z"/></svg>
+      Ask
+    </button>
+    <button class="tab-btn" data-tab="alerts">
+      <svg class="icon" viewBox="0 0 24 24" style="width:16px;height:16px;"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+      Regional Alerts
+    </button>
+  </nav>
+
+  <main>
+
+    <!-- ---------------- Diagnose ---------------- -->
+    <section class="panel active" id="panel-diagnose">
+      <div class="intro">
+        <h2>Diagnose a crop problem</h2>
+        <p>Take or upload a photo of the affected leaf or plant.</p>
+      </div>
+
+      <div class="drop" id="dropZone" onclick="document.getElementById('imageInput').click()">
+        <div id="dropContent">
+          <svg class="icon" viewBox="0 0 24 24"><path d="M4 8a2 2 0 012-2h1l1.5-2h7L17 6h1a2 2 0 012 2v10a2 2 0 01-2 2H6a2 2 0 01-2-2V8z"/><circle cx="12" cy="13" r="3.5"/></svg>
+          <div class="hint">Tap to take a photo or choose one</div>
+        </div>
+        <img id="previewImg" class="hidden" />
+      </div>
+      <input type="file" id="imageInput" accept="image/*" capture="environment" class="hidden" onchange="onImageSelected(event)" />
+
+      <button class="primary" id="diagnoseBtn" onclick="submitDiagnose()" disabled>Diagnose this crop</button>
+
+      <div id="diagnoseLoading" class="loading hidden">
+        <div class="spinner"></div> Reading the leaf pattern…
+      </div>
+      <div id="diagnoseError" class="error-box hidden"></div>
+      <div id="diagnoseResult" class="result hidden"></div>
+    </section>
+
+    <!-- ---------------- Advisory ---------------- -->
+    <section class="panel" id="panel-advisory">
+      <div class="intro">
+        <h2>Get planting advisory</h2>
+        <p>Based on your location's soil, satellite, and weather data.</p>
+      </div>
+
+      <button class="secondary" onclick="useMyLocation('advisory')">
+        <svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><path d="M12 2a7 7 0 00-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        Use my current location
+      </button>
+      <div id="advisoryLocChip" class="hint" style="margin-bottom:14px; color: var(--ink-soft); font-size:0.85rem;"></div>
+
+      <div class="field">
+        <label for="advCrop">Crop (optional)</label>
+        <input type="text" id="advCrop" placeholder="e.g. wheat" />
+      </div>
+
+      <button class="primary" onclick="submitAdvisory()">Get advisory</button>
+
+      <div id="advisoryLoading" class="loading hidden">
+        <div class="spinner"></div> Checking satellite data and forecast…
+      </div>
+      <div id="advisoryError" class="error-box hidden"></div>
+      <div id="advisoryResult" class="result hidden"></div>
+    </section>
+
+    <!-- ---------------- Regenerative ---------------- -->
+    <section class="panel" id="panel-regenerative">
+      <div class="intro">
+        <h2>Regenerative practices</h2>
+        <p>Soil-friendly farming suggestions for your land.</p>
+      </div>
+
+      <button class="secondary" onclick="useMyLocation('regen')">
+        <svg class="icon" viewBox="0 0 24 24" style="width:15px;height:15px;"><path d="M12 2a7 7 0 00-7 7c0 5.3 7 13 7 13s7-7.7 7-13a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+        Use my current location
+      </button>
+      <div id="regenLocChip" class="hint" style="margin-bottom:14px; color: var(--ink-soft); font-size:0.85rem;"></div>
+
+      <div class="field">
+        <label for="regenCrop">Crop</label>
+        <input type="text" id="regenCrop" placeholder="e.g. wheat" />
+      </div>
+
+      <button class="toggle-link" onclick="toggleSoilFields()">
+        <svg class="icon" viewBox="0 0 24 24" style="width:14px;height:14px;"><path d="M12 5v14M5 12h14"/></svg>
+        I have lab soil test results
+      </button>
+
+      <div id="soilFields" class="hidden">
+        <div class="row2">
+          <div class="field"><label>Soil pH</label><input type="number" step="0.1" id="soilPh" /></div>
+          <div class="field"><label>Moisture (%)</label><input type="number" step="0.1" id="soilMoisture" /></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Nitrogen</label><input type="number" step="0.1" id="soilN" /></div>
+          <div class="field"><label>Phosphorus</label><input type="number" step="0.1" id="soilP" /></div>
+        </div>
+        <div class="row2">
+          <div class="field"><label>Potassium</label><input type="number" step="0.1" id="soilK" /></div>
+          <div class="field"><label>Organic Carbon</label><input type="number" step="0.1" id="soilOC" /></div>
+        </div>
+      </div>
+
+      <button class="primary" onclick="submitRegenerative()">Get recommendations</button>
+
+      <div id="regenLoading" class="loading hidden">
+        <div class="spinner"></div> Working out what your soil needs…
+      </div>
+      <div id="regenError" class="error-box hidden"></div>
+      <div id="regenResult" class="result hidden"></div>
+    </section>
+
+    <!-- ---------------- Ask (voice) ---------------- -->
+    <section class="panel" id="panel-ask">
+      <div class="intro">
+        <h2>Ask a question</h2>
+        <p>Speak or type your farming question.</p>
+      </div>
+
+      <div class="field">
+        <label for="voiceLang">Language</label>
+        <select id="voiceLang">
+          <option value="en-IN">English</option>
+          <option value="hi-IN">हिंदी (Hindi)</option>
+        </select>
+      </div>
+
+      <div class="mic-wrap">
+        <button class="mic-btn" id="micBtn" onclick="toggleListening()">
+          <svg class="icon" viewBox="0 0 24 24"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0014 0"/><path d="M12 18v4"/></svg>
+        </button>
+        <div class="status" id="micStatus">Tap to speak</div>
+      </div>
+
+      <div class="field">
+        <label for="voiceTranscript">Or type your question</label>
+        <textarea id="voiceTranscript" placeholder="What should I plant this season?"></textarea>
+      </div>
+
+      <button class="primary" onclick="submitVoiceQuery()">Ask</button>
+
+      <div id="voiceLoading" class="loading hidden">
+        <div class="spinner"></div> Thinking…
+      </div>
+      <div id="voiceError" class="error-box hidden"></div>
+      <div id="voiceResult" class="result hidden"></div>
+    </section>
+
+    <!-- ---------------- Regional alerts ---------------- -->
+    <section class="panel" id="panel-alerts">
+      <div class="intro">
+        <h2>Regional alerts</h2>
+        <p>Disease reports shared anonymously across your district — this is how the network helps neighboring farmers and states spot outbreaks early.</p>
+      </div>
+      <button class="secondary" onclick="loadAlerts()">Refresh</button>
+      <div id="alertsLoading" class="loading hidden"><div class="spinner"></div> Loading…</div>
+      <div id="alertsError" class="error-box hidden"></div>
+      <div id="alertsList"></div>
+    </section>
+
+  </main>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
