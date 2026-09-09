@@ -1,10 +1,10 @@
 package com.nullpointer.agri_backend.model;
 
+import com.google.cloud.Timestamp;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
-import java.time.Instant;
 
 /**
  * A single diagnosis or advisory event, stored per-farmer and also
@@ -20,5 +20,5 @@ public class AdvisoryRecord {
     private String districtId;
     private String type;       // "diagnosis" or "advisory"
     private String summary;    // e.g. disease name or recommendation headline
-    private Instant timestamp;
+    private Timestamp timestamp;
 }

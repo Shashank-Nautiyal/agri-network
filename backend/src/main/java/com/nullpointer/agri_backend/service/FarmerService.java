@@ -1,12 +1,13 @@
 package com.nullpointer.agri_backend.service;
 
+import com.google.cloud.firestore.DocumentSnapshot;
+import com.google.cloud.firestore.Firestore;
 import com.nullpointer.agri_backend.model.Farmer;
 import org.springframework.stereotype.Service;
 
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 /**
  * PHASE 1: in-memory store.
@@ -16,16 +17,36 @@ import java.util.concurrent.ConcurrentHashMap;
 @Service
 public class FarmerService {
 
-    private final Map<String, Farmer> farmers = new ConcurrentHashMap<>();
+    private static final String COLLECTION = "farmers";
+    private final Firestore firestore;
+
+    public FarmerService(Firestore firestore) {
+        this.firestore = firestore;
+    }
 
     public Farmer create(Farmer farmer) {
         String id = UUID.randomUUID().toString();
         farmer.setId(id);
-        farmers.put(id, farmer);
+        try {
+            firestore.collection(COLLECTION).document(id).set(farmer).get();
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to save farmer", e);
+        }
         return farmer;
     }
 
     public Optional<Farmer> findById(String id) {
-        return Optional.ofNullable(farmers.get(id));
+
+        try {
+            DocumentSnapshot snapshot = firestore.collection(COLLECTION).document(id).get().get();
+            if (snapshot.exists()) {
+                return Optional.ofNullable(snapshot.toObject(Farmer.class));
+            }
+            return Optional.empty();
+        } catch (InterruptedException | ExecutionException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Failed to fetch farmer", e);
+        }
     }
 }
