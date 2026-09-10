@@ -1,78 +1,88 @@
-# Agri Backend (Spring Boot)
+# KhetSaathi Backend (Spring Boot)
 
-Backend service for the Digital Agriculture Network prototype.
+Backend API for the KhetSaathi Digital Agriculture Network prototype —
+orchestrates calls to the AI service, manages farmer profiles, and
+aggregates anonymized regional disease data. Deployed on Render.
+
+## Status
+
+Fully integrated and deployed:
+- ✅ Connected to the live AI service in production (`USE_MOCK = false`)
+- ✅ Firestore-backed persistence for farmers and advisory history
+- ✅ CORS configured for the deployed frontend
+- ✅ All endpoints tested end-to-end through the live frontend
 
 ## Run locally
 
-**Option A — Maven Wrapper (no local Maven install needed):**
+**Using the Maven Wrapper (no local Maven install needed):**
 ```bash
-.\mvnw spring-boot:run        # macOS/Linux
+./mvnw spring-boot:run        # macOS/Linux
 mvnw.cmd spring-boot:run      # Windows
 ```
-The wrapper scripts included here (`mvnw`, `mvnw.cmd`, `.mvn/wrapper/`) will
-download Maven automatically on first run — you only need a JDK 17 installed.
+Requires a JDK 17 installed.
 
-**Option B — Install Maven directly (most reliable):**
-- macOS: `brew install maven`
-- Ubuntu/Debian: `sudo apt install maven`
-- Windows: `choco install maven` (via Chocolatey) or download from
-  https://maven.apache.org/download.cgi and add `bin/` to PATH.
+**Environment variables needed for local runs:**
 
-Then run:
-```bash
-mvn spring-boot:run
-```
-Server starts on `http://localhost:8080`. Check `GET /health` to confirm it's up.
+| Variable | Purpose |
+|---|---|
+| `AI_SERVICE_BASE_URL` | URL of the AI service (e.g. `http://localhost:8000` for local dev, or the deployed AI service URL) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Path to a Google Cloud service account JSON key with Firestore access — needed to run the app at all, since the Firestore bean is created at startup |
 
-## Current status: Phase 1 (mocked end-to-end flow)
-All AI-backed endpoints currently return **mocked data** so the full flow
-works without waiting on the AI/ML service. See `AiServiceClient.java` —
-flip `USE_MOCK = false` once the teammate's AI service is deployed and
-`AI_SERVICE_BASE_URL` is set.
+Without `GOOGLE_APPLICATION_CREDENTIALS` set locally, the app will fail to
+start (not just fail Firestore calls) — the same service account used for
+Earth Engine works here too, as long as it has the "Cloud Datastore User"
+role granted.
 
-Farmer and history storage is currently **in-memory** (`FarmerService`,
-`AdvisoryHistoryService`) — swap for Firestore in Phase 2 without changing
-controller code.
+Server runs on `http://localhost:8080`. Check `GET /health` to confirm it's up.
 
-## API contract (matches the AI/ML service contract)
+## API endpoints
+
+See [`../docs/api-contract.md`](../docs/api-contract.md) for the full
+request/response contract shared with the AI service. Summary:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/api/farmers` | POST | Register a farmer profile |
+| `/api/farmers` | POST | Register a farmer profile (Firestore) |
 | `/api/farmers/{id}` | GET | Fetch a farmer profile |
-| `/api/diagnose` | POST | Crop disease diagnosis from photo |
-| `/api/advisory` | POST | Crop/planting advisory from soil+weather |
-| `/api/voice-query` | POST | Voice/text Q&A (STT can happen client-side via Web Speech API) |
-| `/api/district/{districtId}/regional-alerts` | GET | Anonymized cross-district disease trend — proves the interoperability/"digital public good" story |
-| `/health` | GET | Health check for deployment verification |
+| `/api/diagnose` | POST | Crop disease diagnosis from a photo (proxies to AI service) |
+| `/api/advisory` | POST | Crop/planting advisory from soil+satellite+weather (proxies to AI service) |
+| `/api/regenerative-advice` | POST | Regenerative farming practices (proxies to AI service) |
+| `/api/voice-query` | POST | Voice/text Q&A (proxies to AI service) |
+| `/api/district/{districtId}/regional-alerts` | GET | Anonymized cross-district disease trend — owned entirely by this backend, not the AI service |
+| `/health` | GET | Health check |
 
-### Example: `/api/diagnose`
-Request:
-```json
-{ "imageBase64": "...", "districtId": "dehradun", "farmerId": "abc123" }
-```
-Response:
-```json
-{ "disease": "Early Blight", "confidence": 0.87, "treatmentAdvice": "...", "language": "en" }
-```
+## Data model
 
-### Example: `/api/advisory`
-Request:
-```json
-{ "districtId": "dehradun", "cropType": "wheat", "farmerId": "abc123" }
-```
-Response:
-```json
-{ "recommendation": "...", "ndviSummary": "NDVI: 0.62", "weatherRisk": "Low", "language": "en" }
-```
+- **Farmers** and **advisory records** (diagnosis/advisory history, used
+  to build regional alerts) are stored in Firestore — collections
+  `farmers` and `advisory_records`.
+- Only diagnoses flagged `isValidImage: true` by the AI service get
+  recorded into district history, so bad/blurry photos don't pollute the
+  regional disease trend data.
 
-### Example: `/api/voice-query`
-Request (transcript already produced client-side via Web Speech API):
-```json
-{ "transcript": "What should I plant this season?", "farmerId": "abc123", "languageHint": "hi-IN" }
-```
-Response:
-```json
-{ "transcript": "...", "responseText": "...", "responseAudioBase64": null, "language": "hi-IN" }
-```
+## Deployment (Render)
 
+Deployed as a Docker-based Web Service on Render:
+- **Root Directory:** `backend`
+- **Dockerfile Path:** `backend/Dockerfile`
+- **Health Check Path:** `/health`
+
+**Environment variables set on Render:**
+- `AI_SERVICE_BASE_URL` — the deployed AI service's URL
+- `GOOGLE_APPLICATION_CREDENTIALS` — `/etc/secrets/gee-key.json`, matching a Secret File upload of the same service account key used for Earth Engine
+
+**Note:** free-tier Render Web Services sleep after ~15 minutes of
+inactivity and take 30–60s to wake on the next request — worth pinging
+the URL before a live demo.
+
+## CORS
+
+`config/CorsConfig.java` allows requests from any origin (`*`), so the
+frontend can be hosted anywhere (Render Static Site, Netlify, local file,
+etc.) without further backend changes.
+
+## Tech stack
+
+Java 17, Spring Boot 3.3, Maven (with Maven Wrapper), Lombok, Spring
+WebFlux (`WebClient`, used only for its HTTP client — not reactive
+controllers), Google Cloud Firestore.

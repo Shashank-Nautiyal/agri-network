@@ -1,106 +1,96 @@
-# Agri AI Service (FastAPI)
+# KhetSaathi AI Service (FastAPI)
 
-AI/ML service for the Digital Agriculture Network prototype — handles
-Gemini multimodal crop disease diagnosis, Earth Engine-based advisories,
-and voice-query responses. Called by the Spring Boot backend over plain
-REST.
+AI/ML service for the KhetSaathi prototype — Gemini multimodal diagnosis,
+Earth Engine satellite analysis, live weather, and soil estimates. Called
+by the Spring Boot backend over plain REST. Deployed on Render.
+
+## Status
+
+Fully built, deployed, and verified against real data:
+- ✅ Gemini (`gemini-3.6-flash`) — crop disease diagnosis, advisory
+  reasoning, regenerative-practice recommendations, voice responses
+- ✅ Google Earth Engine (Sentinel-2) — real NDVI, authenticated via a
+  service account (required for headless deployment — interactive
+  `earthengine authenticate` only works on a local machine)
+- ✅ OpenWeatherMap (classic free endpoints) — live weather, swapped in
+  after Open-Meteo hit persistent 429s on Render's shared IPs
+- ✅ SoilGrids (ISRIC) — soil estimate fallback when a farmer hasn't
+  submitted lab soil data
 
 ## Run locally
+
 ```bash
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
-Visit `http://localhost:8000/docs` — FastAPI auto-generates interactive
-Swagger docs for every endpoint, useful for testing without needing curl
-or Postman.
+Visit `http://localhost:8000/docs` for interactive Swagger docs.
 
-## Current status: mocked
-Every endpoint currently returns hardcoded mock data so the Spring Boot
-backend can integrate against this service immediately, without waiting
-on real AI wiring. Each function in `main.py` has a `TODO` docstring
-explaining exactly what to replace and how — that's your starting point.
+**Environment variables needed (`.env` file, same directory as `main.py`):**
 
-## API contract (must match the Spring Boot backend exactly)
+| Variable | Purpose |
+|---|---|
+| `GOOGLE_API_KEY` | Gemini API key from Google AI Studio |
+| `GEE_PROJECT_ID` | Earth Engine Cloud project ID |
+| `GEE_SERVICE_ACCOUNT_EMAIL` | Service account email (`...@....iam.gserviceaccount.com`) |
+| `GEE_KEY_PATH` | Path to the service account's JSON key file |
+| `OWM_API_KEY` | OpenWeatherMap API key (classic free tier — no card required) |
+
+**Earth Engine note:** deployed environments use
+`ee.ServiceAccountCredentials(...)`, not interactive
+`earthengine authenticate` — the latter relies on a local OAuth cache that
+doesn't exist on a fresh server.
+
+## API endpoints
+
+See [`../docs/api-contract.md`](../docs/api-contract.md) for the full
+request/response contract. Summary:
 
 | Endpoint | Method | Purpose |
 |---|---|---|
-| `/diagnose` | POST | Crop disease diagnosis from a photo |
-| `/advisory` | POST | Crop/planting advisory from soil+weather |
-| `/voice-query` | POST | Voice/text Q&A |
+| `/diagnose` | POST | Crop disease diagnosis from a photo (Gemini multimodal) |
+| `/advisory` | POST | Planting advisory from NDVI + weather + soil estimate |
+| `/regenerative-advice` | POST | Sustainable farming practices (soil data optional, SoilGrids fallback) |
+| `/voice-query` | POST | Voice/text Q&A, transcript in/out (billing-free — no server-side speech APIs) |
+| `/schema` | GET | Standalone endpoint documenting the country-agnostic data model — demonstrates the cross-border/BRICS interoperability requirement |
 | `/health` | GET | Health check |
 
-If you need to change a field name or add a field, update it here AND
-tell your teammate to update the matching Java DTO in the Spring Boot
-`backend/` — keeping both sides in sync is the only thing that matters
-for integration to "just work."
+## Design decisions worth knowing
 
-### `/diagnose`
-Request:
-```json
-{ "imageBase64": "...", "districtId": "dehradun", "farmerId": "abc123" }
-```
-Response:
-```json
-{ "disease": "Early Blight", "confidence": 0.87, "treatmentAdvice": "...", "language": "en" }
-```
+- **`thinking_level: LOW`** is set on all Gemini calls — the model
+  defaults to `HIGH` reasoning, which added 10–20s of latency per call;
+  `LOW` brought this down significantly with no meaningful quality loss
+  for these tasks.
+- **Voice stays transcript-based, not audio-based** — STT/TTS happen
+  client-side via the browser's Web Speech API, so this service only
+  ever handles plain text. Keeps the whole stack billing-free (no Google
+  Speech-to-Text/Text-to-Speech API).
+- **No separate Translation API** — Gemini is prompted to respond
+  directly in the requested language.
+- **Every endpoint returns 200 with a graceful fallback** rather than an
+  error, even when an external API (Gemini, Earth Engine, weather, soil)
+  fails — the Spring Boot backend doesn't need special error-handling
+  for these calls beyond normal network timeouts.
+- **`/diagnose` sets `isValidImage: false`** on bad/blurry photos or
+  processing failures, so the backend knows not to count them toward
+  district disease trend data.
 
-### `/advisory`
-Request:
-```json
-{ "districtId": "dehradun", "cropType": "wheat", "farmerId": "abc123" }
-```
-Response:
-```json
-{ "recommendation": "...", "ndviSummary": "NDVI: 0.62", "weatherRisk": "Low", "language": "en" }
-```
+## Deployment (Render, no Dockerfile)
 
-### `/voice-query`
-Request:
-```json
-{ "transcript": "What should I plant this season?", "farmerId": "abc123", "languageHint": "hi-IN" }
-```
-Response:
-```json
-{ "transcript": "...", "responseText": "...", "responseAudioBase64": null, "language": "hi-IN" }
-```
+Deployed as a native Python Web Service (no Docker needed for a plain
+FastAPI app):
+- **Root Directory:** `ai-service`
+- **Build Command:** `pip install -r requirements.txt`
+- **Start Command:** `uvicorn main:app --host 0.0.0.0 --port $PORT`
+- **Health Check Path:** `/health`
 
-## Integration notes (billing-free stack)
-- **No separate Translation API** — prompt Gemini to respond directly in
-  the target language (`languageHint`). Simpler and avoids a second billed
-  Google service.
-- **No server-side Speech-to-Text/Text-to-Speech** — the frontend uses the
-  browser's Web Speech API (free, client-side) for both. `transcript` will
-  usually already be filled in when this service receives a `/voice-query`
-  request; `audioBase64` is there as a fallback only if we later decide to
-  do STT server-side.
-- **Earth Engine is free** for non-commercial/research use — no billing
-  account needed for that specific API. Sign up at
-  https://earthengine.google.com/ and follow the Python API auth guide.
-- **Gemini API** — get a free API key from Google AI Studio
-  (https://aistudio.google.com/). Store it as an environment variable
-  (`GEMINI_API_KEY`), never hardcode it in `main.py`.
+**Environment variables + Secret File on Render:**
+- `GOOGLE_API_KEY`, `GEE_PROJECT_ID`, `GEE_SERVICE_ACCOUNT_EMAIL`,
+  `OWM_API_KEY` — set as environment variables
+- `GEE_KEY_PATH` — set to `/etc/secrets/gee-key.json`, matching a Secret
+  File upload of the service account's JSON key
 
-## Suggested build order
-1. Get Gemini API key working — test with one static image first (see
-   the `/diagnose` TODO) before wiring it into the endpoint.
-2. Get Earth Engine authenticated — pull one real NDVI value for your
-   pilot district (agree on the district with your teammate — whatever
-   they hardcoded on the backend side for testing) to confirm the
-   pipeline works end-to-end before building the full `/advisory` logic.
-3. Wire `/diagnose` for real, test against a few sample images
-   (PlantVillage dataset is a good source of test images).
-4. Wire `/advisory` for real using the Earth Engine + weather data.
-5. Wire `/voice-query` last — reuses the same Gemini call pattern as the
-   others, just with conversational framing instead of diagnosis/advisory.
+## Tech stack
 
-## Deployment (Render/Railway — no billing account required)
-Same pattern as the backend: this repo includes a `Dockerfile`. Push to
-GitHub, create a new Web Service on Render/Railway pointed at this folder
-(set Root Directory to `ai-service` if in a monorepo), and it'll build and
-deploy automatically. Once live, share the URL with your teammate so they
-can set `AI_SERVICE_BASE_URL` on the Spring Boot side and flip
-`USE_MOCK = false`.
-
-Remember to set `GEMINI_API_KEY` (and any Earth Engine service account
-credentials) as environment variables on whatever platform you deploy to
-— never commit them to the repo.
+Python, FastAPI, Pydantic (with camelCase field aliases to match the
+Java backend's JSON convention), `google-genai`, `earthengine-api`,
+`requests`, `python-dotenv`, `pillow`.
