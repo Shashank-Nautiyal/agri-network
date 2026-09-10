@@ -107,5 +107,5 @@ python -m http.server 5500   # or just open index.html directly
 
 ## Team
 
-- **Backend & deployment:** `Arun Rangad`
-- **AI/ML integration:** `Shashank Nautiyal`
+- **Backend, Frontend & deployment:** `Arun Rangad`
+- **AI service integration:** `Shashank Nautiyal`
