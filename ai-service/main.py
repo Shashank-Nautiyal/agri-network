@@ -265,7 +265,7 @@ def get_soil_data(latitude: float, longitude: float) -> dict | None:
             "depth": "0-5cm",
             "value": "mean",
         }
-        resp = requests.get(url, params=params, timeout=8)
+        resp = requests.get(url, params=params, timeout=15)
         resp.raise_for_status()
         data = resp.json()
 
