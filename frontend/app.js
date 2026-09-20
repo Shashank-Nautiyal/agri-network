@@ -438,10 +438,16 @@ async function loadAlerts() {
     if (entries.length === 0) {
       list.innerHTML = `<p style="color:var(--ink-soft);">No disease reports in ${district} yet.</p>`;
     } else {
-      list.innerHTML = entries.map(([name, count]) => `
-        <div class="alert-row">
-          <span>${name}</span>
-          <span class="count">${count}</span>
+      // Sort alerts to the top so the most urgent thing in the district is
+      // the first thing a farmer (or a judge glancing at the screen) sees.
+      entries.sort((a, b) => (b[1].alert === true) - (a[1].alert === true));
+      list.innerHTML = entries.map(([name, info]) => `
+        <div class="alert-row${info.alert ? " is-alert" : ""}">
+          <span>
+            ${info.alert ? '<span class="alert-badge">⚠ Outbreak alert</span> ' : ""}
+            ${name}
+          </span>
+          <span class="count">${info.count}<span class="count-window">/${info.windowDays}d</span></span>
         </div>
       `).join("");
     }

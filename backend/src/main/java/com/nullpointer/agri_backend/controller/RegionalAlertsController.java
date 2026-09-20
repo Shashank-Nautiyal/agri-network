@@ -1,6 +1,7 @@
 package com.nullpointer.agri_backend.controller;
 
 
+import com.nullpointer.agri_backend.model.DiseaseTrendEntry;
 import com.nullpointer.agri_backend.service.AdvisoryHistoryService;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -26,7 +27,7 @@ public class RegionalAlertsController {
     }
 
     @GetMapping("/{districtId}/regional-alerts")
-    public Map<String, Long> regionalAlerts(@PathVariable String districtId) {
+    public Map<String, DiseaseTrendEntry> regionalAlerts(@PathVariable String districtId) {
         return historyService.diseaseTrendByDistrict(districtId);
     }
 }

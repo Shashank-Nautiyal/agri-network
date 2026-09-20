@@ -32,6 +32,11 @@ science, and generative AI.
 
 ## Architecture
 
+![KhetSaathi architecture diagram](docs/architecture.svg)
+
+<details>
+<summary>Full text version with data sources per tier</summary>
+
 ```
 Farmer (Web browser — mobile-first)
         │
@@ -59,6 +64,8 @@ Farmer (Web browser — mobile-first)
 │  - SoilGrids (soil estimate fallback)
 └─────────────────────────┘
 ```
+
+</details>
 
 ## Tech stack
 
@@ -104,6 +111,26 @@ uvicorn main:app --reload --port 8000   # needs GOOGLE_API_KEY, GEE_PROJECT_ID, 
 cd frontend
 python -m http.server 5500   # or just open index.html directly
 ```
+
+## Credits & Attributions
+
+This project builds on the following third-party services, datasets, and open-source libraries. All are used under their respective free/open terms; nothing here is redistributed as part of this codebase.
+
+**Data & APIs**
+- [Google Earth Engine](https://earthengine.google.com/) / [Copernicus Sentinel-2](https://sentinel.esa.int/web/sentinel/missions/sentinel-2) (ESA) — satellite NDVI vegetation-health data
+- [Google Gemini API](https://ai.google.dev/) — multimodal diagnosis, advisory reasoning, and voice responses
+- [OpenWeatherMap](https://openweathermap.org/) — live weather forecast data
+- [SoilGrids](https://soilgrids.org/) (ISRIC — World Soil Information) — regional soil-property estimates, used as a fallback when a farmer hasn't submitted a lab soil test
+- [Google Fonts](https://fonts.google.com/) — Fraunces, Space Grotesk
+
+**Open-source frameworks & libraries**
+- [Spring Boot](https://spring.io/projects/spring-boot) (Apache License 2.0)
+- [FastAPI](https://fastapi.tiangolo.com/) (MIT License)
+- [Project Lombok](https://projectlombok.org/) (MIT License)
+- Google Cloud client libraries — `google-cloud-firestore`, `earthengine-api`, `google-genai` (Apache License 2.0)
+- Browser-native [Web Speech API](https://developer.mozilla.org/en-US/docs/Web/API/Web_Speech_API) — no third-party library, built into the browser
+
+No proprietary, closed-source, or improperly licensed code is used anywhere in this project. All application code (backend, AI service, frontend) was written by the team listed below during the hackathon period.
 
 ## Team
 

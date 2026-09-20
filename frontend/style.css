@@ -358,6 +358,40 @@ button.secondary:hover { background: var(--forest-tint); }
   font-size: 1.35rem;
   color: var(--forest);
 }
+.alert-row .count-window {
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 500;
+  font-size: 0.75rem;
+  color: var(--ink-faint);
+  margin-left: 2px;
+}
+
+/* Regional-alerts: a disease that's crossed the outbreak threshold in the
+   trailing window gets visually pulled out, not just listed as a bigger
+   number -- this is what makes it read as an alert system at a glance. */
+.alert-row.is-alert {
+  background: var(--rust-tint);
+  border-radius: var(--radius-sm);
+  border-bottom: 1px solid transparent;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+.alert-row.is-alert .count {
+  color: var(--rust);
+}
+.alert-badge {
+  display: inline-block;
+  background: var(--rust);
+  color: var(--surface-strong);
+  font-family: 'Space Grotesk', sans-serif;
+  font-weight: 600;
+  font-size: 0.68rem;
+  letter-spacing: 0.02em;
+  padding: 2px 8px;
+  border-radius: 999px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
 
 /* ---------- Registration overlay ---------- */
 .overlay {

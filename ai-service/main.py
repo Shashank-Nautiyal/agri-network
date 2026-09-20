@@ -116,6 +116,11 @@ class AdvisoryResponse(BaseModel):
     soil_summary: str = Field(..., alias="soilSummary")
     weather_risk: str = Field(..., alias="weatherRisk")
     disease_risk_level: Literal["low", "moderate", "high"] = Field(..., alias="diseaseRiskLevel")
+    outlook_7day: str = Field(
+        ...,
+        alias="outlook7Day",
+        description="Forward-looking projection for the next 7 days, based on the 30-day NDVI trend plus the weather forecast — not just the current snapshot.",
+    )
     confidence: float
     language: str = "en"
 
@@ -202,6 +207,80 @@ def get_ndvi(latitude: float, longitude: float) -> float | None:
         return value.getInfo()
     except Exception:
         return None
+
+
+def get_ndvi_for_window(point, start_date: str, end_date: str) -> float | None:
+    """Mean NDVI for a single date window. Shared helper for get_ndvi_trend."""
+    collection = (
+        ee.ImageCollection("COPERNICUS/S2_SR_HARMONIZED")
+        .filterBounds(point)
+        .filterDate(start_date, end_date)
+        .filter(ee.Filter.lt("CLOUDY_PIXEL_PERCENTAGE", 20))
+        .sort("CLOUDY_PIXEL_PERCENTAGE")
+    )
+    image = collection.first()
+    if image is None:
+        return None
+
+    ndvi = image.normalizedDifference(["B8", "B4"]).rename("NDVI")
+    value = ndvi.reduceRegion(
+        reducer=ee.Reducer.mean(),
+        geometry=point.buffer(100),
+        scale=10,
+    ).get("NDVI")
+    return value.getInfo()
+
+
+def get_ndvi_trend(latitude: float, longitude: float) -> dict:
+    """
+    Returns current NDVI plus a short-term trend signal, turning a single
+    vegetation-health snapshot into a forward-looking indicator.
+
+    Compares the most recent 30-day window against the prior 30-day window
+    (30-60 days ago). This is a simple trend model, not a trained ML
+    forecast — but it's what lets the advisory prompt reason about whether
+    a field is *heading toward* stress before that shows up as low NDVI in
+    a single current reading, which is the actual predictive signal a
+    farmer can act on early.
+
+    Always returns a dict (never raises) so callers don't need their own
+    try/except: {"current": float|None, "trend": str, "change": float|None}
+    trend is one of: "improving", "declining", "stable", "unknown" (no
+    baseline image available), "unavailable" (no recent image / EE error).
+    """
+    try:
+        point = ee.Geometry.Point([longitude, latitude])
+        today = datetime.now()
+
+        recent = get_ndvi_for_window(
+            point,
+            (today - timedelta(days=30)).strftime("%Y-%m-%d"),
+            today.strftime("%Y-%m-%d"),
+        )
+        if recent is None:
+            return {"current": None, "trend": "unavailable", "change": None}
+
+        baseline = get_ndvi_for_window(
+            point,
+            (today - timedelta(days=90)).strftime("%Y-%m-%d"),
+            (today - timedelta(days=60)).strftime("%Y-%m-%d"),
+        )
+        if baseline is None:
+            return {"current": round(recent, 4), "trend": "unknown", "change": None}
+
+        change = round(recent - baseline, 4)
+        if change > 0.05:
+            trend = "improving"
+        elif change < -0.05:
+            trend = "declining"
+        else:
+            trend = "stable"
+
+        return {"current": round(recent, 4), "trend": trend, "change": change}
+
+    except Exception as e:
+        print(f"DEBUG get_ndvi_trend error: {type(e).__name__}: {e}")
+        return {"current": None, "trend": "unavailable", "change": None}
 
 # this function for to getting the weather data using the open-meteo " "
 
@@ -296,7 +375,7 @@ def get_soil_data(latitude: float, longitude: float) -> dict | None:
             "ph": ph,
             "nitrogen": nitrogen if nitrogen is not None else 0.0,
             "phosphorus": None,   # not available 
-            "potassium": None,    # not available we will do something these 
+            "potassium": None,    # not available we will do something in future 
             "organic_carbon": organic_carbon if organic_carbon is not None else 0.0,
             "moisture": moisture if moisture is not None else 0.0,
         }
@@ -334,7 +413,7 @@ def diagnose(req: DiagnoseRequest):
     and identify any disease present. Respond ONLY with valid JSON in this
     exact format, no other text:
     {
-      "disease": "<disease name, or 'Healthy' if no disease detected>",
+      "disease": "<the common disease name only, 2-4 words, Title Case, no scientific/Latin names, no punctuation, no parenthetical notes -- e.g. 'Leaf Blight' or 'Powdery Mildew'; use 'Healthy' if no disease detected. This value is matched exactly against other farmers' reports to detect regional outbreaks, so consistency matters more than detail here -- put any nuance in treatment_advice instead>",
       "confidence": <float between 0 and 1>,
       "treatment_advice": "<short, practical treatment advice, prefer organic/regenerative options>",
       "is_valid_image": <true if this is a genuine, identifiable crop/leaf photo suitable for diagnosis, false if the image is blurry, not a plant, or otherwise unusable>
@@ -363,9 +442,11 @@ def diagnose(req: DiagnoseRequest):
 @app.post("/advisory", response_model=AdvisoryResponse, response_model_by_alias=True)
 def advisory(req: AdvisoryRequest):
 
-    ndvi_value = get_ndvi(req.location.latitude, req.location.longitude)
-    ndvi_status = "unavailable" if ndvi_value is None else f"{ndvi_value:.2f}"
-    
+    ndvi_data = get_ndvi_trend(req.location.latitude, req.location.longitude)
+    ndvi_status = "unavailable" if ndvi_data["current"] is None else f"{ndvi_data['current']:.2f}"
+    trend_status = ndvi_data["trend"]
+    change_str = f" ({ndvi_data['change']:+.3f})" if ndvi_data.get("change") is not None else ""
+
     weather = get_weather(req.location.latitude, req.location.longitude)
     if weather is not None:
         weather_block = f'''
@@ -387,21 +468,25 @@ def advisory(req: AdvisoryRequest):
     else:
         soil_block = "\n    Soil data unavailable — give general soil-health guidance for the region."
     prompt =f'''You are an agricultural advisor. Based on the following data
-    for a farm, generate a practical recommendation.
+    for a farm, generate a practical recommendation AND a short-term forecast.
 
     Location: {req.location.district}, {req.location.state}, {req.location.country}
     Crop: {req.crop_type or "not specified"}
     NDVI (vegetation health index): {ndvi_status}
     (NDVI ranges -1 to 1; below 0.3 suggests stressed or sparse vegetation,
-    0.3-0.6 moderate, above 0.6 healthy dense vegetation){weather_block}
+    0.3-0.6 moderate, above 0.6 healthy dense vegetation)
+    30-day NDVI trend vs. the prior 30-day period: {trend_status}{change_str}
+    (a "declining" trend can signal emerging stress before it's visible in
+    the current NDVI value alone — treat this as an early-warning signal){weather_block}{soil_block}
 
     Respond ONLY with valid JSON in this exact format, no other text:
     {{
     "recommendation": "<practical advice for the farmer>",
-    "ndvi_summary": "<one sentence interpreting the NDVI value>",
+    "ndvi_summary": "<one sentence interpreting the current NDVI value>",
     "soil_summary": "<one sentence interpreting the soil data above>",
     "weather_risk": "<summary of the actual weather data above and any risk it implies>",
     "disease_risk_level": "<low, moderate, or high>",
+    "outlook_7day": "<forward-looking projection for the next 7 days — combine the NDVI trend and the weather forecast to say whether field conditions are likely to improve, stay stable, or worsen, and briefly why>",
     "confidence": <float 0-1>
     }}'''
 
@@ -417,6 +502,7 @@ def advisory(req: AdvisoryRequest):
         "soil_summary": "Not available",
         "weather_risk": "Not available",
         "disease_risk_level": "low",
+        "outlook_7day": "Not available",
         "confidence": 0.0,
     }
 
@@ -426,6 +512,7 @@ def advisory(req: AdvisoryRequest):
         soil_summary=result["soil_summary"],
         weather_risk=result["weather_risk"],
         disease_risk_level=result["disease_risk_level"],
+        outlook_7day=result.get("outlook_7day", "Not available"),
         confidence=result["confidence"],
         language="en",
     )
@@ -435,7 +522,7 @@ def advisory(req: AdvisoryRequest):
 def regenerative_advice(req: RegenerativeRequest):
 
     if req.soil_data is not None:
-        soil_dict = req.soil_data.model_dump()
+        soil_dict = {k: (v if v is not None else "unavailable") for k, v in req.soil_data.model_dump().items()}
         soil_source_note = "Based on your submitted soil test results."
     else:
         fallback = get_soil_data(req.location.latitude, req.location.longitude)
@@ -530,6 +617,7 @@ def schema():
             "location": "country, state, district, latitude, longitude",
             "soilData": "ph, nitrogen, phosphorus, potassium, organicCarbon, moisture",
             "satelliteData": "ndvi, vegetationHealth, landSurfaceTemp",
+            "advisoryResponse": "recommendation, ndviSummary, soilSummary, weatherRisk, diseaseRiskLevel, outlook7Day, confidence, language",
             "weatherData": "temperature, rainfallMm, humidity, forecastSummary",
         },
     )
